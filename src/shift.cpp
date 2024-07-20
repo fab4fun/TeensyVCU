@@ -1,24 +1,13 @@
-#include <Arduino.h>
-#include <FlexCAN_T4.h>
-#include <servo.h>
-#include <TaskScheduler.h>
+// shift.cpp
+#include "shift.h"
 
 //#define _TASK_SLEEP_ON_IDLE_RUN
 
-void Mng10ms_Tasks(void);
-void Mng100ms_Tasks(void);
-void Mng1000ms_Tasks(void);
-void shift(void);
-void disengage(void);
-void engage(void);
-void canSniff(const CAN_message_t &msg);
 
-// We create the Scheduler that will be in charge of managing the tasks
-Scheduler runner;
-
-Task Mng10ms(10, TASK_FOREVER, &Mng10ms_Tasks);
-Task Mng100ms(100, TASK_FOREVER, &Mng100ms_Tasks);
-Task Mng1000ms(1000, TASK_FOREVER, &Mng1000ms_Tasks);
+extern void MngTASK_ShiftTimer(int);
+extern void MngTASK_EngageTimer(int);
+extern void MngTASK_ShiftDisable(void);
+extern void MngTASK_EngageDisable(void);
 
 // CAN configuration
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> PriCAN;
@@ -110,9 +99,6 @@ int currLimCount = 0;
 
 long motorVel = 0;  // (rpm)
 boolean motorVelRcvd = 0; 
-
-Task DelayShift(TASK_IMMEDIATE, TASK_FOREVER, &shift);
-Task DelayEngage(TASK_IMMEDIATE, TASK_FOREVER, &engage);
 
   boolean shiftUpPinSt = false;
   boolean shiftDnPinSt = false;
@@ -208,20 +194,10 @@ void MngSHFT_Init() {
   // enable power to servos
   digitalWrite(servoPowerPin,true);
 
-  // We add the task to the task scheduler
-  runner.addTask(Mng10ms);
-  runner.addTask(Mng100ms);
-  runner.addTask(Mng1000ms);
-  runner.addTask(DelayShift);
-  runner.addTask(DelayEngage);
-  // We activate the task
-  Mng10ms.enable();
-  Mng100ms.enable();
-  Mng1000ms.enable();
 }
 
 void MngSHFT_loop() {
-  // put your main code here, to run repeatedly:
+  // service CAN events
   PriCAN.events();
 
  /* if ( PriCAN.read(inMsg) ) {
@@ -236,13 +212,9 @@ void MngSHFT_loop() {
     }
     Serial.print("  TS: "); Serial.println(inMsg.timestamp);
   }*/
-
-  // It is necessary to run the runner on each loop
-  runner.execute();
-
 }
 
-void Mng10ms_Tasks() {
+void MngSHFT_10ms() {
   shiftUpPinSt = digitalRead(shiftUpPin);
   shiftDnPinSt = digitalRead(shiftDnPin);
   neutralPinSt = digitalRead(neutralPin);
@@ -314,7 +286,7 @@ else {
       targetGear = neutralIndex-1;
       Serial.println("Neutral");
       disengage();
-      DelayShift.enableDelayed(shiftGateDelay);
+      MngTASK_ShiftTimer(shiftGateDelay);
       //DelayEngage.enableDelayed(shiftEngageDelay);
       //shift();
       currentGear = targetGear;  // normally set after DelayEngage
@@ -339,8 +311,8 @@ else {
         Serial.println("Shift Up");
         Serial.println(targetGear);
         disengage();
-        DelayShift.enableDelayed(shiftGateDelay);
-        DelayEngage.enableDelayed(shiftEngageDelay);
+        MngTASK_ShiftTimer(shiftGateDelay);
+        MngTASK_EngageTimer(shiftEngageDelay);
         //shift();
         //engage();
       }
@@ -364,8 +336,8 @@ else {
           Serial.println("Shift Down");
           Serial.println(targetGear);
           disengage();
-          DelayShift.enableDelayed(shiftGateDelay);
-          DelayEngage.enableDelayed(shiftEngageDelay);
+          MngTASK_ShiftTimer(shiftGateDelay);
+          MngTASK_EngageTimer(shiftEngageDelay);
         }  
       }
       else {
@@ -379,24 +351,24 @@ else {
       targetGear = 4;
       Serial.println("Shift to 4th");
       disengage();
-      DelayShift.enableDelayed(shiftGateDelay);
-      DelayEngage.enableDelayed(shiftEngageDelay);
+      MngTASK_ShiftTimer(shiftGateDelay);
+      MngTASK_EngageTimer(shiftEngageDelay);
       shift4thCAN_St = false;  // reset latched request
     }
     else if (shift3rdCAN_St) {
       targetGear = 3;
       Serial.println("Shift to 3rd");
       disengage();
-      DelayShift.enableDelayed(shiftGateDelay);
-      DelayEngage.enableDelayed(shiftEngageDelay);
+      MngTASK_ShiftTimer(shiftGateDelay);
+      MngTASK_EngageTimer(shiftEngageDelay);
       shift3rdCAN_St = false;  // reset latched request
     }
     else if (shift2ndCAN_St) {
       targetGear = 2;
       Serial.println("Shift to 2nd");
       disengage();
-      DelayShift.enableDelayed(shiftGateDelay);
-      DelayEngage.enableDelayed(shiftEngageDelay);
+      MngTASK_ShiftTimer(shiftGateDelay);
+      MngTASK_EngageTimer(shiftEngageDelay);
       shift2ndCAN_St = false;  // reset latched request
     }
     else if (shift1stCAN_St) {
@@ -413,8 +385,8 @@ else {
         targetGear = 1;
         Serial.println("Shift to 1st");
         disengage();
-        DelayShift.enableDelayed(shiftGateDelay);
-        DelayEngage.enableDelayed(shiftEngageDelay);
+        MngTASK_ShiftTimer(shiftGateDelay);
+        MngTASK_EngageTimer(shiftEngageDelay);
 
       }
         shift1stCAN_St = false;  // reset latched request
@@ -426,7 +398,7 @@ else {
 
 }
 
-void Mng100ms_Tasks() {
+void MngSHFT_100ms() {
   
   outMsg.buf[0] = currentGear;  // R(-1) N(0) 1 2 3 4 5
 
@@ -446,7 +418,7 @@ void Mng100ms_Tasks() {
   PriCAN.write(outMsg);
 }
 
-void Mng1000ms_Tasks() {
+void MngSHFT_1000ms() {
  // Serial.println("Tic");
   Serial.print("Current Sensor (mA): ");
   Serial.print(currSense);
@@ -460,13 +432,13 @@ void Mng1000ms_Tasks() {
 void shift() {
     Serial.println("Shift Task");
     servoGate.write(servoGatePos[targetGear+1]+servoGateOffset);
-    DelayShift.disable();
+    MngTASK_ShiftDisable();
 }
 
 void engage() {
     Serial.println("Engage Task");
     servoEngage.write(servoEngagePos[targetGear+1]+servoEngageOffset);
-    DelayEngage.disable();
+    MngTASK_EngageDisable();
     currentGear = targetGear;
 }
 

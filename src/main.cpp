@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>
+
 // Test code for Ultimate GPS Using Hardware Serial (e.g. GPS Flora or FeatherWing)
 //
 // This code shows how to listen to the GPS module via polling. Best used with
@@ -22,6 +23,11 @@
 #include "sdFunc.h"
 #include "gps.h"
 #include "wiring.h"
+//#include "tasks.h"  
+
+extern void MngTASK_Loop(void);
+extern void MngTASK_Init(void);
+
 
 uint32_t timer = millis();
 
@@ -44,6 +50,7 @@ void setup()
   Serial.begin(115200);
   Serial.println("Adafruit GPS library basic parsing test!");
 
+  MngTASK_Init();
   initializeGPS();
 
   // SD_setup();
@@ -52,6 +59,8 @@ void setup()
 
 void loop() // run over and over again
 {
+  MngTASK_Loop();
+
   readGPSData();
 
   // approximately every 2 seconds or so, print out the current stats
