@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>
+#include "TeensyDebug.h"
+#pragma GCC optimize ("O0")
 
 // Test code for Ultimate GPS Using Hardware Serial (e.g. GPS Flora or FeatherWing)
 //
@@ -23,6 +25,7 @@
 #include "sdFunc.h"
 #include "gps.h"
 #include "wiring.h"
+
 //#include "tasks.h"  
 
 extern void MngTASK_Loop(void);
@@ -50,10 +53,19 @@ void setup()
   Serial.begin(115200);
   Serial.println("Adafruit GPS library basic parsing test!");
 
+// Debugger will use second USB Serial; this line is not need if using menu option
+  debug.begin(SerialUSB1);
+
+  //halt_cpu();
+
   MngTASK_Init();
   initializeGPS();
 
   // SD_setup();
+
+  // set power hold pin high until ready to shutdown
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
 
 }
 
@@ -87,7 +99,7 @@ void loop() // run over and over again
     Serial.print(GetGPS_Cnt_Month(), DEC); Serial.print("/20");
     Serial.println(GetGPS_Cnt_Year(), DEC);
     Serial.print("Fix quality: ");  Serial.println(GetGPS_e_FixQuality());
-    if (GetGPS_t_Fix()) {
+    if (GetGPS_b_Fix()) {
       Serial.println("Fix"); 
       Serial.print("Location: ");
       Serial.print(GetGPS_deg_LatPos(), 4); Serial.print(GetGPS_str_LatPosDir());

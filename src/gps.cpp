@@ -21,7 +21,7 @@ void initializeGPS() {
   // Request updates on antenna status, comment out to keep quiet
   GPS.sendCommand(PGCMD_ANTENNA);
 
-  delay(1000);
+ // delay(1000);
 
   // Ask for firmware version
   GPSSerial.println(PMTK_Q_RELEASE);
@@ -45,90 +45,79 @@ void readGPSData() {
   }
 }
 
-uint8_t GetGPS_Cnt_Year()
-{
+uint8_t GetGPS_Cnt_Year() {
   return GPS.year;
 }
 
-uint8_t GetGPS_Cnt_Month()
-{
+uint8_t GetGPS_Cnt_Month() {
   return GPS.month;
 }
 
-uint8_t GetGPS_Cnt_Day()
-{
+uint8_t GetGPS_Cnt_Day() {
   return GPS.day;
 }
 
-uint8_t GetGPS_t_Hour()
-{
+uint8_t GetGPS_t_Hour() {
   return GPS.hour;
 }
 
-uint8_t GetGPS_t_Minute()
-{
+uint8_t GetGPS_t_Minute() {
   return GPS.minute;
 }
 
-uint8_t GetGPS_t_Seconds()
-{
+uint8_t GetGPS_t_Seconds() {
   return GPS.seconds;
 }
 
-uint16_t GetGPS_t_Milliseconds()
-{
+uint16_t GetGPS_t_Milliseconds() {
   return GPS.milliseconds;
 }
 
-boolean GetGPS_t_Fix()
-{
+boolean GetGPS_b_Fix() {
   return GPS.fix;
 }
 
-char GetGPS_str_LatPosDir()
-{
+char GetGPS_str_LatPosDir() {
   return GPS.lat;
 }
 
-char GetGPS_str_LongPosDir()
-{
+char GetGPS_str_LongPosDir() {
   return GPS.lon;
 }
 
-uint8_t GetGPS_e_FixQuality()
-{
+uint8_t GetGPS_e_FixQuality() {
   return GPS.fixquality;
 }
 
-nmea_float_t GetGPS_deg_LatPos()
-{
+float_t GetGPS_deg_LatPos() {
   return GPS.latitude;
 }
 
-nmea_float_t GetGPS_deg_LongPos()
-{
+float_t GetGPS_deg_LongPos() {
     return GPS.longitude;
 }
 
-nmea_float_t GetGPS_v_Speed()
-{
+float_t GetGPS_v_Speed() {
     return (GPS.speed*(nmea_float_t)0.514444);
 }
 
-nmea_float_t GetGPS_deg_Heading()
-{
+float_t GetGPS_deg_Heading() {
     return GPS.angle;
 }
 
-nmea_float_t GetGPS_l_Altitude()
-{
+float_t GetGPS_l_Altitude() {
     return GPS.altitude;
 }
 
-uint8_t GetGPS_Cnt_Satellites(){
+uint8_t GetGPS_Cnt_Satellites() {
     return GPS.satellites;
 }
 
-uint8_t GetGPS_e_Antenna(){
+uint8_t GetGPS_e_Antenna() {
     return GPS.antenna;
 }
+
+float_t GetGPS_t_SinceFix() {
+    return GPS.secondsSinceFix();
+}
+// gps.cpp

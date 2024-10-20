@@ -59,19 +59,25 @@ int16_t TireCirc = 1875;   // [mm]
 int16_t VehVel = 0;  // [km/h*100]
 
 //PWMServo servo1, servo2;
-Servo servoGate, servoEngage;
+Servo servoGate, servoEngage, servoClutch;
 
-const int shiftUpPin = 19;
-const int shiftDnPin = 18;
-const int neutralPin = 16;
+const int shiftUpPin = 9;
+const int shiftDnPin = 10;
+const int neutralPin = 11;
 const int powerPin = 17;
-const int servoPowerPin = 11;
-const int currSensePin = A0;   // pin 14 (J3)
+const int servoPowerPin = 4;  // Halfbridge 1 HS only used for power to servos. Aslo needs DO6 set to <xxx>
+const int servoPowerHB_Pin = 15;  // Halfbridge Set to TRUE for HS
+#ifdef ARDUINO_TEENSY41
+  const int currSensePin = A12;   // pin 14 (J3)
+#else
+  const int currSensePin = A6;   // jumper from current sensor output to A6
+#endif
 
 const int debounceDelay = 200;
 
-const int servoGatePin = 6;
-const int servoEngagePin = 23;
+const int servoGatePin = 18;
+const int servoEngagePin = 19;
+const int servoClutchPin = 28;
 
 int currentGear = 0;   //  -1 reverse, 0 neutral, 1 - 5  
 int targetGear = 0;
@@ -89,11 +95,12 @@ int shiftEngageDelay = 450;
 
 int analogMax = 1023;
 int currSenseRaw = 0;
-long currSenseVolt = 0;
-int currSenseZero = 1600; // (mv)
-int currSenseGain = 44;  //  (mv/A)   66mv/A at 5V converted to 3.3V
-int currSense; // mA
-int currLim = 2000;  // mA fault threshold
+u_long currSenseVolt = 0;
+int currSenseZero = 1640; // (mv)
+//int currSenseGain = 44;  //  (mv/A)   66mv/A at 5V converted to 3.3V
+uint currSenseGain = 15;  //  15.15 (mA/mv)   66mv/A at 3.3V (ACS725-20AB)
+uint currSense; // mA
+uint currLim = 2000;  // mA fault threshold
 int currLimDelay = 200;   // ms (x10) until fault 
 int currLimCount = 0;
 
@@ -137,7 +144,7 @@ boolean motorVelRcvd = 0;
 
 void MngSHFT_Init() {
   // put your setup code here, to run once:
-  Serial.begin(9600); // USB is always 12 or 480 Mbit/sec
+  //Serial.begin(9600); // USB is always 12 or 480 Mbit/sec
 
   PriCAN.begin();
   PriCAN.setBaudRate(500000L);
@@ -171,18 +178,20 @@ void MngSHFT_Init() {
 
   pinMode(servoGatePin,OUTPUT);
   pinMode(servoEngagePin,OUTPUT);
+  pinMode(servoClutchPin,OUTPUT);
 
   servoGate.attach(servoGatePin);
   // servoGate.write(0);
 
   servoEngage.attach(servoEngagePin);
-  //servoEngage.write(servoEngagePos[neutralIndex]+servoEngageOffset);
+  servoClutch.attach(servoClutchPin);
+  servoClutch.write(servoEngagePos[neutralIndex]+servoEngageOffset);
   disengage();
 
   //for pins borrowed from 3.2 setup
-  pinMode(3,INPUT_DISABLE);
-  pinMode(4,INPUT_DISABLE);
-  pinMode(20,INPUT);
+  //pinMode(3,INPUT_DISABLE);
+  //pinMode(4,INPUT_DISABLE);
+  //pinMode(20,INPUT);
 
   pinMode(shiftUpPin, INPUT);
   pinMode(shiftDnPin, INPUT);
@@ -190,9 +199,14 @@ void MngSHFT_Init() {
   pinMode(powerPin, INPUT);
 
   pinMode(servoPowerPin,OUTPUT);
-
+  pinMode(servoPowerHB_Pin,OUTPUT);
+  pinMode(5,OUTPUT);
   // enable power to servos
-  digitalWrite(servoPowerPin,true);
+   digitalWrite(servoPowerPin,LOW);
+    digitalWrite(5,HIGH);
+    digitalWrite(servoPowerHB_Pin,HIGH);
+ // analogWriteFrequency(5, 1);
+ // analogWrite(5, 127); // 99% duty cycle
 
 }
 
@@ -235,6 +249,7 @@ void MngSHFT_10ms() {
     Serial.println("Overcurrent, disengage to neutral");
     currentGear = neutralIndex-1;
     targetGear = currentGear;
+    currLimCount=0;
     neutralPinSt = false;
     shiftUpPinSt = false;
     shiftDnPinSt = false;

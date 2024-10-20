@@ -25,17 +25,19 @@ uint8_t GetGPS_t_Hour();
 uint8_t GetGPS_t_Minute();
 uint8_t GetGPS_t_Seconds();
 uint16_t GetGPS_t_Milliseconds();
-boolean GetGPS_t_Fix();
+boolean GetGPS_b_Fix();
 char GetGPS_str_LatPosDir();
 char GetGPS_str_LongPosDir();
 uint8_t GetGPS_e_FixQuality();
-nmea_float_t GetGPS_deg_LatPos();
-nmea_float_t GetGPS_deg_LongPos();
-nmea_float_t GetGPS_v_Speed();
-nmea_float_t GetGPS_deg_Heading();
-nmea_float_t GetGPS_l_Altitude();
+float_t GetGPS_deg_LatPos();
+float_t GetGPS_deg_LongPos();
+float_t GetGPS_v_Speed();
+float_t GetGPS_deg_Heading();
+float_t GetGPS_l_Altitude();
 
 uint8_t GetGPS_Cnt_Satellites();
 uint8_t GetGPS_e_Antenna();
+
+float_t GetGPS_t_SinceFix();
 
 #endif // GPS_H
