@@ -18,6 +18,8 @@ void MngTASK_Init(void){
     Mng100ms.enable();
     Mng1000ms.enable();
     MngSHFT_Init();
+
+
 }
 
 void MngTASK_Loop(void){
@@ -28,6 +30,10 @@ void MngTASK_Loop(void){
 
 void MngTASK_10ms(void){
     MngSHFT_10ms();
+    // testcode: reset power hold pin
+    if(digitalRead(12) == HIGH){
+        digitalWrite(13, HIGH);
+    }
 }
 void MngTASK_100ms(void){
     MngSHFT_100ms();
@@ -42,6 +48,17 @@ void MngTASK_1000ms(void){
         // update RTC clock
         Teensy3Clock.set(now());
       }
+    digitalWrite(2, LOW);
+    digitalWrite(3, LOW);
+    digitalWrite(4, LOW);
+    digitalWrite(6, LOW);
+    digitalWrite(14, LOW);
+    digitalWrite(15, LOW);
+    // testcode: delayed shutdown
+    if(digitalRead(12) == LOW){
+        digitalWrite(13, LOW);
+    }
+
 }
 
 void MngTASK_ShiftTimer(int delay){

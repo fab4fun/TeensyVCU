@@ -63,9 +63,17 @@ void setup()
 
   // SD_setup();
 
+  // switched 12V digital input pin
+  pinMode(12, INPUT);
+
   // set power hold pin high until ready to shutdown
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
+
+  //GPS enable pin
+  pinMode(37, OUTPUT);
+  // set low to disable GPS for now
+  digitalWrite(37, LOW);
 
 }
 
