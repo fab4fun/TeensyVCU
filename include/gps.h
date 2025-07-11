@@ -8,14 +8,12 @@
 // what's the name of the hardware serial port?
 #define GPSSerial Serial8
 
-
-
 // Set GPSECHO to 'false' to turn off echoing the GPS data to the Serial console
 // Set to 'true' if you want to debug and listen to the raw GPS sentences
 #define GPSECHO false
 
-void initializeGPS();
-void readGPSData();
+void MngGPS_Init();
+void MngGPS_ReadData();
 
 uint8_t GetGPS_Cnt_Year();
 uint8_t GetGPS_Cnt_Month();

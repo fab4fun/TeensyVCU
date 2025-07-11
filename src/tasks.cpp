@@ -1,12 +1,17 @@
 // tasks.cpp
 #include "tasks.h"
+#include "CAN.h"
+#include "gps.h"
+#include "shift.h"
+#include "serial.h"
 
 void MngTASK_Init(void){
-    // We add the task to the task scheduler
+    // We add the peiodic tasks to the task scheduler
     runner.addTask(Mng10ms);
     runner.addTask(Mng100ms);
     runner.addTask(Mng1000ms);
 
+    // add event-based tasks
     runner.addTask(DelayShift);
     runner.addTask(DelayEngage);
 
@@ -17,14 +22,17 @@ void MngTASK_Init(void){
     Mng10ms.enable();
     Mng100ms.enable();
     Mng1000ms.enable();
+    MngSERIAL_Init(); // Initialize serial communication for debugging
     MngSHFT_Init();
-
-
+    MngCAN_Init(); // Replace PriCAN setup with this call
+    MngGPS_Init();
 }
 
 void MngTASK_Loop(void){
-      // It is necessary to run the runner on each loop
-  MngSHFT_loop();    
+    // some functions need to be run as fast as possible
+  MngCAN_Loop(); 
+  MngSHFT_loop();    // right now the CAN handler is still in shift.cpp main loop
+        // It is necessary to run the runner on each loop
   runner.execute();
 }
 
@@ -37,17 +45,11 @@ void MngTASK_10ms(void){
 }
 void MngTASK_100ms(void){
     MngSHFT_100ms();
+    MngGPS_ReadData();
 }
 void MngTASK_1000ms(void){
     MngSHFT_1000ms();
-    if (GetGPS_b_Fix() && GetGPS_Cnt_Year() > 0 && GetGPS_t_SinceFix() < 3) {
-        // set the Time to the latest GPS reading + time since reading
-        setTime(GetGPS_t_Hour(), GetGPS_t_Minute(), GetGPS_t_Seconds()+(int)floor(GetGPS_t_SinceFix()), GetGPS_Cnt_Day(), GetGPS_Cnt_Month(), GetGPS_Cnt_Year());
-        // adjust for GPS using UTC with hardcoded timezone
-        adjustTime(timeZoneOffset * SECS_PER_HOUR);
-        // update RTC clock
-        Teensy3Clock.set(now());
-      }
+
     digitalWrite(2, LOW);
     digitalWrite(3, LOW);
     digitalWrite(4, LOW);
@@ -59,6 +61,18 @@ void MngTASK_1000ms(void){
         digitalWrite(13, LOW);
     }
 
+}
+
+void MngTASK_10s(void){
+    //TODO: move to function in a clock.c file
+    if (GetGPS_b_Fix() && GetGPS_Cnt_Year() > 0 && GetGPS_t_SinceFix() < 3) {
+        // set the Time to the latest GPS reading + time since reading
+        setTime(GetGPS_t_Hour(), GetGPS_t_Minute(), GetGPS_t_Seconds()+(int)floor(GetGPS_t_SinceFix()), GetGPS_Cnt_Day(), GetGPS_Cnt_Month(), GetGPS_Cnt_Year());
+        // adjust for GPS using UTC with hardcoded timezone
+        adjustTime(timeZoneOffset * SECS_PER_HOUR);
+        // update RTC clock
+        Teensy3Clock.set(now());
+      }
 }
 
 void MngTASK_ShiftTimer(int delay){

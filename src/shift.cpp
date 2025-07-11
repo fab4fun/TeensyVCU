@@ -1,5 +1,6 @@
 // shift.cpp
 #include "shift.h"
+#include "CAN.h" // Add this include
 
 //#define _TASK_SLEEP_ON_IDLE_RUN
 
@@ -10,9 +11,9 @@ extern void MngTASK_ShiftDisable(void);
 extern void MngTASK_EngageDisable(void);
 
 // CAN configuration
-FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> PriCAN;
-#define NUM_TX_MAILBOXES 2
-#define NUM_RX_MAILBOXES 2
+//FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> PriCAN;
+//#define NUM_TX_MAILBOXES 2
+//#define NUM_RX_MAILBOXES 2
 
 CAN_message_t inMsg;
 CAN_message_t outMsg;
@@ -146,30 +147,7 @@ void MngSHFT_Init() {
   // put your setup code here, to run once:
   //Serial.begin(9600); // USB is always 12 or 480 Mbit/sec
 
-  PriCAN.begin();
-  PriCAN.setBaudRate(500000L);
 
-  PriCAN.setMaxMB(NUM_TX_MAILBOXES + NUM_RX_MAILBOXES);
- 
-  
-  for (int i = 0; i<NUM_RX_MAILBOXES; i++){
-    PriCAN.setMB((FLEXCAN_MAILBOX)i,RX,STD);
-  }
-  for (int i = NUM_RX_MAILBOXES; i<(NUM_TX_MAILBOXES + NUM_RX_MAILBOXES); i++){
-    PriCAN.setMB((FLEXCAN_MAILBOX)i,TX,STD);
-  }
-  
-  // PriCAN.setMB(MB0,RX,STD); // Set mailbox as receive, standard ID frames
-
-  PriCAN.setMBFilter(REJECT_ALL);
-  PriCAN.enableMBInterrupts();
-  PriCAN.onReceive(MB0,canSniff);
-  PriCAN.setMBFilter(MB0, 0x195); // Mailbox will attept to receive only frames 0x195 (KeyStatus).
-  PriCAN.onReceive(MB1,canSniff);
-  PriCAN.setMBFilter(MB1, 0x454); // Mailbox will attept to receive only frames 0x454 (TractionMotor).
-  //PriCAN.setMBFilterRange(MB0,0x00,0x7FF);
- // PriCAN.setMBFilter(ACCEPT_ALL);
-  PriCAN.mailboxStatus();
 
   //test message
   outMsg.id = 0x241;
@@ -211,21 +189,7 @@ void MngSHFT_Init() {
 }
 
 void MngSHFT_loop() {
-  // service CAN events
-  PriCAN.events();
 
- /* if ( PriCAN.read(inMsg) ) {
-    Serial.print("CAN1 "); 
-    Serial.print("MB: "); Serial.print(inMsg.mb);
-    Serial.print("  ID: 0x"); Serial.print(inMsg.id, HEX );
-    Serial.print("  EXT: "); Serial.print(inMsg.flags.extended );
-    Serial.print("  LEN: "); Serial.print(inMsg.len);
-    Serial.print(" DATA: ");
-    for ( uint8_t i = 0; i < 8; i++ ) {
-      Serial.print(inMsg.buf[i]); Serial.print(" ");
-    }
-    Serial.print("  TS: "); Serial.println(inMsg.timestamp);
-  }*/
 }
 
 void MngSHFT_10ms() {
@@ -409,28 +373,33 @@ else {
   }
 
 }
-//  PriCAN.write(outMsg);
 
 }
 
 void MngSHFT_100ms() {
-  
-  outMsg.buf[0] = currentGear;  // R(-1) N(0) 1 2 3 4 5
+  DtrmnSHFT_RatioVelEst();
+  BuildSHFT_GearStatusMsg();
+}
 
-  outMsg.buf[1] = (abs(currSense)/100) & 0xFF;   // A * 10
-  
-  currentRatio = GearRatio[(currentGear+1)];
-  if (currentGear !=0){  // handle neutral div/0 case
-    VehVel = ((motorVel * 60 * TireCirc)/currentRatio)/100;  // km/h*100 = 100 * RPM * (mm) / (ratio*100)/100 / (hr/min * mm/km)
-    outMsg.buf[2] = ((uint16_t)VehVel >> 0) & 0xFF;
-    outMsg.buf[3] = ((uint16_t)VehVel >> 8) & 0xFF;
+void DtrmnSHFT_RatioVelEst()
+{
+  currentRatio = GearRatio[(currentGear + 1)];
+  if (currentGear != 0)
+  {                                                             // handle neutral div/0 case
+    VehVel = ((motorVel * 60 * TireCirc) / currentRatio) / 100; // km/h*100 = 100 * RPM * (mm) / (ratio*100)/100 / (hr/min * mm/km)
   }
-  outMsg.buf[4] = ((uint16_t)currentRatio >> 0) & 0xFF;   // ratio *100
+}
+
+void BuildSHFT_GearStatusMsg()
+{
+  outMsg.buf[0] = currentGear;                   // R(-1) N(0) 1 2 3 4 5
+  outMsg.buf[1] = (abs(currSense) / 100) & 0xFF; // A * 10
+  outMsg.buf[2] = ((uint16_t)VehVel >> 0) & 0xFF;
+  outMsg.buf[3] = ((uint16_t)VehVel >> 8) & 0xFF;
+  outMsg.buf[4] = ((uint16_t)currentRatio >> 0) & 0xFF; // ratio *100
   outMsg.buf[5] = ((uint16_t)currentRatio >> 8) & 0x0F;
-
-
-  outMsg.buf[6] = targetGear;  // R(-1) N(0) 1 2 3 4 5
-  PriCAN.write(outMsg);
+  outMsg.buf[6] = targetGear; // R(-1) N(0) 1 2 3 4 5
+  CAN_Send(outMsg);           // Replace PriCAN.write(outMsg) with this call
 }
 
 void MngSHFT_1000ms() {
@@ -461,7 +430,7 @@ void disengage() {
     servoEngage.write(servoEngagePos[neutralIndex]+servoEngageOffset);
 }
 
-void canSniff(const CAN_message_t &msg) {
+void CAN_Parse_Shift(const CAN_message_t &msg) {
 /*  Serial.print("MB "); Serial.print(msg.mb);
   Serial.print("  OVERRUN: "); Serial.print(msg.flags.overrun);
   Serial.print("  LEN: "); Serial.print(msg.len);

@@ -1,3 +1,6 @@
+// sdFunc.h
+#ifndef SD_FUNC_H
+#define SD_FUNC_H
 /*
  * Simple data logger.
  */
@@ -17,13 +20,13 @@ const uint32_t SAMPLE_INTERVAL_MS = 1000;
 #define FILE_BASE_NAME "Data"
 //------------------------------------------------------------------------------
 // File system object.
-extern SdFat sd;
+SdFat sd;
 
 // Log file.
-extern SdFile file;
+SdFile file;
 
 // Time in micros for next data record.
-extern uint32_t logTime;
+uint32_t logTime;
 
 //==============================================================================
 // User functions.  Edit writeHeader() and logData() for your requirements.
@@ -34,7 +37,9 @@ const uint8_t ANALOG_COUNT = 4;
 // Error messages stored in flash.
 #define error(msg) sd.errorHalt(F(msg))
 
-void SD_setup(void);
-void logData(void);
+void MngSDLOG_Init(void);
+void MngSDLOG_LogData(void);
 void writeHeader(void);
+void MngSDLOG_StopLog(void);
 
+#endif // SD_FUNC_H

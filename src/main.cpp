@@ -1,31 +1,12 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>
-#include "TeensyDebug.h"
+//#include "TeensyDebug.h"
 #pragma GCC optimize ("O0")
 
-// Test code for Ultimate GPS Using Hardware Serial (e.g. GPS Flora or FeatherWing)
-//
-// This code shows how to listen to the GPS module via polling. Best used with
-// Feathers or Flora where you have hardware Serial and no interrupt
-//
-// Tested and works great with the Adafruit GPS FeatherWing
-// ------> https://www.adafruit.com/products/3133
-// or Flora GPS
-// ------> https://www.adafruit.com/products/1059
-// but also works with the shield, breakout
-// ------> https://www.adafruit.com/products/1272
-// ------> https://www.adafruit.com/products/746
-//
-// Pick one up today at the Adafruit electronics shop
-// and help support open source hardware & software! -ada
-
-
-
-#include "sdFunc.h"
+//#include "sdFunc.h"
 #include "gps.h"
-#include "wiring.h"
-
+//#include "wiring.h"
 //#include "tasks.h"  
 
 extern void MngTASK_Loop(void);
@@ -34,32 +15,11 @@ extern void MngTASK_Init(void);
 
 uint32_t timer = millis();
 
-//------------------------------------------------------------------------------
-// File system object.
-SdFat sd;
-
-// Log file.
-SdFile file;
-
-// Time in micros for next data record.
-uint32_t logTime;
-
 void setup()
 {
-  //while (!Serial);  // uncomment to have the sketch wait until Serial is ready
-
-  // connect at 115200 so we can read the GPS fast enough and echo without dropping chars
-  // also spit it out
-  Serial.begin(115200);
-  Serial.println("Adafruit GPS library basic parsing test!");
-
-// Debugger will use second USB Serial; this line is not need if using menu option
-  debug.begin(SerialUSB1);
-
   //halt_cpu();
 
   MngTASK_Init();
-  initializeGPS();
 
   // SD_setup();
 
@@ -80,8 +40,6 @@ void setup()
 void loop() // run over and over again
 {
   MngTASK_Loop();
-
-  readGPSData();
 
   // approximately every 2 seconds or so, print out the current stats
   if (millis() - timer > 2000) {
@@ -125,33 +83,4 @@ void loop() // run over and over again
       Serial.println("No Fix"); 
     }
   }
-  // Time for next record.
-  logTime += 1000UL*SAMPLE_INTERVAL_MS;
-
-  // Wait for log time.
- /* int32_t diff;
-  do {
-    diff = micros() - logTime;
-  } while (diff < 0); */
-
-  // Check for data rate too high.
-//  if (diff > 10) {
-//    error("Missed data record");
-//  }
-
- // logData();
-
-  // Force data to SD and update the directory entry to avoid data loss.
-/*  if (!file.sync() || file.getWriteError()) {
-    error("write error");
-  } */
-
- /* if (Serial.available()) {
-    // Close file and stop.
-    file.close();
-    Serial.println(F("Done"));
-    while (true) {}
-  } */
 }
-
-

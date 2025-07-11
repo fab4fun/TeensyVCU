@@ -8,6 +8,7 @@
 void MngTASK_10ms(void);
 void MngTASK_100ms(void);
 void MngTASK_1000ms(void);
+void MngTASK_10s(void);
 
 void MngTASK_Init(void);
 void MngTASK_Loop(void);
@@ -27,6 +28,7 @@ Scheduler runner;
 Task Mng10ms(10, TASK_FOREVER, &MngTASK_10ms);
 Task Mng100ms(100, TASK_FOREVER, &MngTASK_100ms);
 Task Mng1000ms(1000, TASK_FOREVER, &MngTASK_1000ms);
+Task Mng10s(10000, TASK_FOREVER, &MngTASK_10s);
 
 Task DelayShift(TASK_IMMEDIATE, TASK_FOREVER, &shift);
 Task DelayEngage(TASK_IMMEDIATE, TASK_FOREVER, &engage);

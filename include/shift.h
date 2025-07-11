@@ -11,11 +11,13 @@ void MngSHFT_loop();
 
 void MngSHFT_10ms(void);
 void MngSHFT_100ms(void);
+void BuildSHFT_GearStatusMsg();
+void DtrmnSHFT_RatioVelEst();
 void MngSHFT_1000ms(void);
 
 void shift(void);
 void disengage(void);
 void engage(void);
-void canSniff(const CAN_message_t &msg);
+void CAN_Parse_Shift(const CAN_message_t &msg);
 
 #endif // SHIFT_H

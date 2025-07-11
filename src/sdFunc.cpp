@@ -2,6 +2,7 @@
  * Simple data logger.
  */
 #include "sdFunc.h"
+#include "serial.h"
 
 //------------------------------------------------------------------------------
 // Write data header.
@@ -15,7 +16,7 @@ void writeHeader() {
 }
 //------------------------------------------------------------------------------
 // Log a data record.
-void logData() {
+void MngSDLOG_LogData() {
   uint16_t data[ANALOG_COUNT];
 
   // Read all channels to avoid SD write latency between readings.
@@ -31,25 +32,17 @@ void logData() {
     file.print(data[i]);
   }
   file.println();
+
+    // Force data to SD and update the directory entry to avoid data loss.
+  if (!file.sync() || file.getWriteError()) {
+    error("write error");
+  } 
 }
 
 //------------------------------------------------------------------------------
-void SD_setup() {
+void MngSDLOG_Init() {
   const uint8_t BASE_NAME_SIZE = sizeof(FILE_BASE_NAME) - 1;
   char fileName[13] = FILE_BASE_NAME "00.csv";
-
-  Serial.begin(9600);
-
-  // Wait for USB Serial
-  while (!Serial) {
-    yield();
-  }
-  delay(1000);
-
-  Serial.println(F("Type any character to start"));
-  while (!Serial.available()) {
-    yield();
-  }
 
   // Initialize at the highest speed supported by the board that is
   // not over 50 MHz. Try a lower speed if SPI errors occur.
@@ -74,14 +67,9 @@ void SD_setup() {
   if (!file.open(fileName, O_WRONLY | O_CREAT | O_EXCL)) {
     error("file.open");
   }
-  // Read any Serial data.
-  do {
-    delay(10);
-  } while (Serial.available() && Serial.read() >= 0);
-
+  // Print the file name to the serial console.
   Serial.print(F("Logging to: "));
   Serial.println(fileName);
-  Serial.println(F("Type any character to stop"));
 
   // Write data header.
   writeHeader();
@@ -91,4 +79,13 @@ void SD_setup() {
   logTime *= 1000UL*SAMPLE_INTERVAL_MS;
 }
 
-
+void MngSDLOG_StopLog(void) {
+  // Close the file.
+  if (!file.close()) {
+    error("file.close");
+  }
+  else {
+    error("File was already closed");
+  }
+  Serial.println(F("Logging stopped"));
+}

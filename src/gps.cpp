@@ -4,7 +4,7 @@
 // Connect to the GPS on the hardware port
 Adafruit_GPS GPS(&GPSSerial);
 
-void initializeGPS() {
+void MngGPS_Init() {
   // 9600 NMEA is the default baud rate for Adafruit MTK GPS's- some use 4800
   GPS.begin(9600);
   // uncomment this line to turn on RMC (recommended minimum) and GGA (fix data) including altitude
@@ -28,7 +28,7 @@ void initializeGPS() {
     // Initialization code here
 }
 
-void readGPSData() {
+void MngGPS_ReadData() {
   // read data from the GPS in the 'main loop'
   char c = GPS.read();
   // if you want to debug, this is a good time to do it!
