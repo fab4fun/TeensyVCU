@@ -1,0 +1,7 @@
+[
+    {
+        "key": "ctrl+shift+b",          // or any free key combo
+        "command": "workbench.action.tasks.runTask",
+        "args": "pio: build project"
+    }
+]

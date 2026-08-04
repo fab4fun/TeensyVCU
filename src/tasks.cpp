@@ -5,6 +5,8 @@
 #include "shift.h"
 #include "serial.h"
 
+// Boost sensor support
+#include "BoostSensor.h"
 void MngTASK_Init(void){
     // We add the peiodic tasks to the task scheduler
     runner.addTask(Mng10ms);
@@ -26,6 +28,8 @@ void MngTASK_Init(void){
     MngSHFT_Init();
     MngCAN_Init(); // Replace PriCAN setup with this call
     MngGPS_Init();
+    // Initialise boost sensors
+    BoostSensor_init();
 }
 
 void MngTASK_Loop(void){

@@ -44,3 +44,20 @@ libraries scanning project source files.
 
 More information about PlatformIO Library Dependency Finder
 - https://docs.platformio.org/page/librarymanager/ldf.html
+
+## FlexCAN_T4
+
+`lib/FlexCAN_T4` is a vendored copy of the library bundled with
+`framework-arduinoteensy`, patched to fix a link error. In that library,
+`FlexCAN_T4_Base::getFirstTxBoxSize()` is declared as a plain virtual
+function but never defined, which causes:
+
+```
+undefined reference to `vtable for FlexCAN_T4_Base'
+```
+
+The fix changes the declaration to a pure virtual (`= 0`) in
+`FlexCAN_T4.h`, since both derived classes already override it. Keeping
+the patched copy here (instead of relying on the registry package or the
+framework's bundled copy) ensures the fix persists across
+`framework-arduinoteensy` reinstalls/updates.

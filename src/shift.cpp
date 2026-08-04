@@ -393,7 +393,8 @@ void DtrmnSHFT_RatioVelEst()
 void BuildSHFT_GearStatusMsg()
 {
   outMsg.buf[0] = currentGear;                   // R(-1) N(0) 1 2 3 4 5
-  outMsg.buf[1] = (abs(currSense) / 100) & 0xFF; // A * 10
+  // Use std::abs to avoid ambiguity between integer and floating overloads.
+  outMsg.buf[1] = (std::abs(static_cast<int>(currSense)) / 100) & 0xFF;
   outMsg.buf[2] = ((uint16_t)VehVel >> 0) & 0xFF;
   outMsg.buf[3] = ((uint16_t)VehVel >> 8) & 0xFF;
   outMsg.buf[4] = ((uint16_t)currentRatio >> 0) & 0xFF; // ratio *100

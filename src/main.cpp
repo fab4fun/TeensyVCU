@@ -1,3 +1,4 @@
+// Added stdbool header to satisfy dependencies for Arduino.h
 #include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>

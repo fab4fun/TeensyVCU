@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "pio: build project",
+            "type": "shell",
+            "command": "\"C:\\Users\\vwrac\\.platformio\\penv\\Scripts\\pio.exe\" run -e teensy41",
+            "cwd": "${workspaceFolder}\\TeensyVCU",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
