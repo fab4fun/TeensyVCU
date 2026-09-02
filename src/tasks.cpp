@@ -7,6 +7,7 @@
 
 // Boost sensor support
 #include "BoostSensor.h"
+#include "ThrottleCtrl.h"
 void MngTASK_Init(void){
     // We add the peiodic tasks to the task scheduler
     runner.addTask(Mng10ms);
@@ -27,9 +28,12 @@ void MngTASK_Init(void){
     MngSERIAL_Init(); // Initialize serial communication for debugging
     MngSHFT_Init();
     MngCAN_Init(); // Replace PriCAN setup with this call
+#if GPS_INSTALLED
     MngGPS_Init();
+#endif
     // Initialise boost sensors
-    BoostSensor_init();
+    MngBoostSensor_Init();
+    MngThrottleCtrl_Init();
 }
 
 void MngTASK_Loop(void){
@@ -42,6 +46,7 @@ void MngTASK_Loop(void){
 
 void MngTASK_10ms(void){
     MngSHFT_10ms();
+    MngThrottleCtrl_10ms(); // reads TPS via MngBoostSensor_Read() itself
     // testcode: reset power hold pin
     if(digitalRead(12) == HIGH){
         digitalWrite(13, HIGH);
@@ -49,17 +54,19 @@ void MngTASK_10ms(void){
 }
 void MngTASK_100ms(void){
     MngSHFT_100ms();
+    MngThrottleCtrl_100ms();
+#if GPS_INSTALLED
     MngGPS_ReadData();
+#endif
 }
 void MngTASK_1000ms(void){
     MngSHFT_1000ms();
 
-    digitalWrite(2, LOW);
-    digitalWrite(3, LOW);
-    digitalWrite(4, LOW);
-    digitalWrite(6, LOW);
-    digitalWrite(14, LOW);
-    digitalWrite(15, LOW);
+    // pins 2/3 removed: now HB1/HB2 throttle motor PWM drive (ThrottleCtrl.cpp)
+    // pins 6/14 ALSO removed: those are the two IR2104 ~SD hard-shutdown lines for the same H-bridge -
+    // force-driving them LOW here once per second = a gate on/off pulse every second = audible click.
+    digitalWrite(4, LOW);   // shift.cpp servoPowerPin (unrelated to throttle motor)
+    digitalWrite(15, LOW);  // shift.cpp servoPowerHB_Pin (unrelated to throttle motor)
     // testcode: delayed shutdown
     if(digitalRead(12) == LOW){
         digitalWrite(13, LOW);

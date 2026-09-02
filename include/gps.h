@@ -12,6 +12,12 @@
 // Set to 'true' if you want to debug and listen to the raw GPS sentences
 #define GPSECHO false
 
+// Set to 'false' when the GPS module is NOT physically installed on this VCU build (bench/standalone units).
+// Single source of truth - gates MngGPS_Init()/MngGPS_ReadData() in tasks.cpp, the pin-37 enable and
+// periodic debug text in main.cpp. The GetGPS_* accessors are safe to call either way (they just read
+// parsed fields, no I/O), so MngTASK_10s()'s RTC sync needs no gating.
+#define GPS_INSTALLED false
+
 void MngGPS_Init();
 void MngGPS_ReadData();
 

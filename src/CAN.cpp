@@ -1,4 +1,5 @@
 #include "CAN.h"
+#include "ThrottleCtrl.h"
 
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> PriCAN;
 
@@ -21,6 +22,10 @@ void MngCAN_Init() {
     PriCAN.setMBFilter(MB0, 0x195);
     PriCAN.onReceive(MB1, CAN_Parse_Shift);
     PriCAN.setMBFilter(MB1, 0x454);
+    PriCAN.onReceive(MB2, CAN_Parse_Throttle);
+    PriCAN.setMBFilter(MB2, THROTTLE_CAN_RX_ID_MS3PRO); // TODO: placeholder ID, confirm with MS3Pro CAN broadcast config
+    PriCAN.onReceive(MB3, CAN_Parse_Throttle);
+    PriCAN.setMBFilter(MB3, THROTTLE_CAN_RX_ID_DIRECT); // secondary generic/direct override
     PriCAN.mailboxStatus();
 }
 

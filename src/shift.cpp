@@ -96,7 +96,7 @@ int shiftEngageDelay = 450;
 
 int analogMax = 1023;
 int currSenseRaw = 0;
-u_long currSenseVolt = 0;
+long currSenseVolt = 0; // mV relative to zero-current offset, signed (near-zero current reads below the offset)
 int currSenseZero = 1640; // (mv)
 //int currSenseGain = 44;  //  (mv/A)   66mv/A at 5V converted to 3.3V
 uint currSenseGain = 15;  //  15.15 (mA/mv)   66mv/A at 3.3V (ACS725-20AB)
@@ -199,8 +199,9 @@ void MngSHFT_10ms() {
   powerPinSt = digitalRead(powerPin);  
 
   currSenseRaw = analogRead(currSensePin);
-  currSenseVolt = ((currSenseRaw * 3300) / analogMax) - currSenseZero;
-  currSense = currSenseVolt * currSenseGain;
+  currSenseVolt = ((long)currSenseRaw * 3300) / analogMax - currSenseZero;
+  // magnitude only - ACS725 is bidirectional around the zero offset, fault threshold cares about |current|
+  currSense = (uint)abs(currSenseVolt * (long)currSenseGain);
 
  if(currSense > currLim) {
   currLimCount++;

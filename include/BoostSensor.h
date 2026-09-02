@@ -10,5 +10,5 @@ struct BoostSensorData {
     float intakeTemperature; // Intake temperature sensor
 };
 
-void BoostSensor_init();
-BoostSensorData BoostSensor_read();
+void MngBoostSensor_Init();
+BoostSensorData MngBoostSensor_Read();
