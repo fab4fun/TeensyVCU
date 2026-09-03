@@ -70,10 +70,30 @@ float tpsPositionPct = 0.0f;       // primary position (TPS2-derived) used for c
 float lastTps1Volts = 0.0f;
 float lastTps2Volts = 0.0f;
 
-// TPS1/TPS2 cross-check fault
-const int tpsMismatchDelay = 50;  // x10ms cycles until fault
-int tpsMismatchCount = 0;
+// TPS1/TPS2 cross-check fault — windowed scheme. Motor commutation noise produces occasional
+// single-sample glitches in the TPS reading, so a lone bad sample must not trip the fault.
+// Keep a rolling window of the last `tpsMismatchWindow` samples (each 0=ok / 1=mismatch);
+// >= `tpsMismatchFailThreshold` failures within the window trips the diagnostic, and it only
+// clears once the entire window is clean again (all good) - giving clean hysteresis.
+const int tpsMismatchWindow = 20;      // rolling measurement window (x10ms samples)
+const int tpsMismatchFailThreshold = 16; // >= this many failures in-window trips the fault
+int tpsMismatchBuf[tpsMismatchWindow];  // ring buffer: 1=mismatch, 0=ok (zero-initialized)
+int tpsMismatchIdx = 0;                 // next slot to write
 boolean tpsFault = false;
+
+void UpdateTpsMismatchDiag(boolean mismatchNow) {
+  tpsMismatchBuf[tpsMismatchIdx] = mismatchNow ? 1 : 0;
+  tpsMismatchIdx = (tpsMismatchIdx + 1) % tpsMismatchWindow;
+
+  int failCount = 0;
+  for (int i = 0; i < tpsMismatchWindow; i++) failCount += tpsMismatchBuf[i];
+
+  if (!tpsFault && failCount >= tpsMismatchFailThreshold) {
+    tpsFault = true; // trip: 8/10 failing in the window
+  } else if (tpsFault && failCount == 0) {
+    tpsFault = false; // clear only when all samples in the window are good again
+  }
+}
 
 // Stall/timeout fault
 const int stallTimeoutDelay = 300; // x10ms cycles (3s) of no progress at high effort
@@ -88,13 +108,36 @@ boolean throttleFault = false;
 double pidInput = 0.0;
 double pidOutput = 0.0;
 double pidSetpoint = 0.0;
-double pidKp = 25.0, pidKi = 0.0, pidKd = 0.000; // placeholder, needs bench tuning
-// REVERSE: bench testing showed the motor drives to one hard stop regardless of target,
-// i.e. positive feedback - SetMotorDrive(+1,...) physically closes the valve rather than
-// opening it (opposite of the assumed convention), so the controller direction is inverted
-// to correct for it instead of re-wiring/re-mapping SetMotorDrive.
-PID throttlePID(&pidInput, &pidOutput, &pidSetpoint, pidKp, pidKi, pidKd, REVERSE);
+double pidKp = 0.8, pidKi = 2.0, pidKd = 0.0; // feedforward carries the spring hold-load, so only small
+// gains are needed to trim residual position error - keep them modest (large Ki reintroduces windup).
+// DIRECT: with the corrected wiring (HB1 on Motor+, HB2 on Motor-), SetMotorDrive(+1) drives
+// +voltage to Motor+ which OPENS the throttle valve against its spring - i.e. +output leads to
+// +input, a direct-acting process. error = setpoint - input > 0 (need to open more) yields a
+// positive output -> SetMotorDrive(+1) -> opens: negative feedback. NOTE: this used to be REVERSE
+// as a workaround for the original (reversed) wiring; that workaround is now wrong and would
+// reintroduce positive feedback (drives to one hard stop regardless of target).
+PID throttlePID(&pidInput, &pidOutput, &pidSetpoint, pidKp, pidKi, pidKd, DIRECT);
 const float positionDeadbandPct = 1.0f;
+
+// Feedforward hold-load map: commanded position% -> base FWD duty% needed to HOLD that position against
+// the return spring (the load pure-P cannot carry - which is why Kp-only settled ~77% at a 100% command).
+// The PID above only trims residual error on top of this.
+//
+// Feedforward hold-load map: commanded position% -> base drive duty% needed to HOLD that position against
+// the spring forces. The PID above only trims residual error on top of this.
+//
+// Mechanical model (bench-confirmed):
+//   - Main long-wrap torsion spring: zero net force at ~5% position, constant opposing force above 5%.
+//     → Positive FWD duty needed to hold open (>5%), roughly flat through the working range (~10-14%).
+//   - Secondary seat/stop spring below 5%: pushes valve toward OPEN (away from fully-closed stop).
+//     → Negative (REV) duty needed to hold in the 0-5% region.
+//   - At ~5%: both springs balanced, zero net drive needed.
+//
+// The control code handles sign naturally: totalDrive > +deadband → FWD; < −deadband → REV.
+// Tune by open-loop sweep: for each target position, note the smallest steady duty that holds with no drift.
+const int ffHoldPoints = 5;
+const float ffHoldPct[ffHoldPoints]   = {0.0f,    5.0f, 10.0f,   50.0f,  100.0f};
+const float ffHoldDuty[ffHoldPoints]  = {-12.0f,   0.0f, 5.0f,  10.0f,  12.0f}; // signed: +FWD / −REV duty% (bench-tune)
 
 // Open-loop bench-test mode: when active, MngThrottleCtrl_10ms() skips the PID loop and all fault
 // latching - just holds a fixed direction/duty via SetMotorDrive(), so the raw H-bridge can be
@@ -116,15 +159,15 @@ void SetMotorDrive(int8_t direction, uint8_t dutyPercent) {
   int duty = map(dutyPercent, 0, 100, 0, 255);
   EnableMotorDriver(true);
   if (direction > 0) {
-    digitalWrite(motorHB2_IN_Pin, LOW);
+    analogWrite(motorHB2_IN_Pin, 0);
     analogWrite(motorHB1_IN_Pin, duty);
   } else if (direction < 0) {
-    digitalWrite(motorHB1_IN_Pin, LOW);
+    analogWrite(motorHB1_IN_Pin, 0);
     analogWrite(motorHB2_IN_Pin, duty);
   } else {
     // both legs LOW = both low-side FETs on = dynamic braking
-    digitalWrite(motorHB1_IN_Pin, LOW);
-    digitalWrite(motorHB2_IN_Pin, LOW);
+    analogWrite(motorHB1_IN_Pin, 0);
+    analogWrite(motorHB2_IN_Pin, 0);
   }
 #else
   // Motor drive disabled: H-bridge topology not yet verified on the bench.
@@ -182,12 +225,9 @@ void ReadThrottlePosition() {
   }
 #endif
 
-  if (fabs(data.throttlePos1 - expectedTps1Volts) > tps1MismatchTolVolts) {
-    tpsMismatchCount++;
-  } else {
-    tpsMismatchCount = 0;
-  }
-  tpsFault = (tpsMismatchCount > tpsMismatchDelay);
+  // Windowed cross-check: a single bad sample just records one failure in the ring buffer;
+  // the fault only trips at >=8/10 and clears when the whole window is clean again.
+  UpdateTpsMismatchDiag(fabs(data.throttlePos1 - expectedTps1Volts) > tps1MismatchTolVolts);
 }
 
 void ReadMotorCurrent() {
@@ -268,12 +308,21 @@ void MngThrottleCtrl_10ms(void) {
 
   CheckStall();
 
-  if (fabs(pidSetpoint - tpsPositionPct) < positionDeadbandPct) {
-    SetMotorDrive(0, 0);
-  } else if (pidOutput > 0) {
-    SetMotorDrive(1, (uint8_t)pidOutput);
+  // Feedforward + PID: the feedforward table carries the spring hold-load at the commanded position.
+  // The PID output (small, ±) trims residual error on top of that base duty.
+  //   total > 0 → FWD direction at |total|% duty (HB1 PWM on Motor+)
+  //   total < 0 → REV direction at |total|% duty (HB2 PWM on Motor−)
+  //   total ≈ 0 → both off (dynamic brake; only when target is near fully-closed and PID ~0)
+  float ffDuty = InterpolatePiecewise((float)pidSetpoint, ffHoldPct, ffHoldDuty, ffHoldPoints);
+  double totalDrive = ffDuty + pidOutput;
+
+  if (totalDrive > positionDeadbandPct) {
+    SetMotorDrive(1, (uint8_t)constrain(totalDrive, 0.0, 100.0));
+  } else if (totalDrive < -positionDeadbandPct) {
+    SetMotorDrive(-1, (uint8_t)constrain(-totalDrive, 0.0, 100.0));
   } else {
-    SetMotorDrive(-1, (uint8_t)(-pidOutput));
+    // Within deadband of zero net drive (target near fully-closed + PID ~0): hold off.
+    SetMotorDrive(0, 0);
   }
 }
 
